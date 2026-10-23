@@ -4,3 +4,6 @@ sqlalchemy
 pydantic[email]
 bcrypt
 PyJWT
+google-auth
+requests
+python-dotenv
