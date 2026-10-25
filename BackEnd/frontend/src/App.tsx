@@ -3,7 +3,9 @@ import { ArrowRight, Menu, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { flowers, type Flower } from "./data";
 type CartItem = Flower & { quantity: number }; type View = "home"|"shop"|"about"|"contact"|"checkout";
 export default function App() {
- const [view,setView]=useState<View>("home"),[cart,setCart]=useState<CartItem[]>([]),[drawer,setDrawer]=useState(false),[menu,setMenu]=useState(false),[notice,setNotice]=useState(""); const total=useMemo(()=>cart.reduce((s,i)=>s+i.price*i.quantity,0),[cart]); const count=cart.reduce((s,i)=>s+i.quantity,0);
+ const requestedView = new URLSearchParams(window.location.search).get("view");
+ const startView: View = requestedView === "shop" || requestedView === "about" || requestedView === "contact" || requestedView === "checkout" ? requestedView : "home";
+ const [view,setView]=useState<View>(startView),[cart,setCart]=useState<CartItem[]>([]),[drawer,setDrawer]=useState(false),[menu,setMenu]=useState(false),[notice,setNotice]=useState(""); const total=useMemo(()=>cart.reduce((s,i)=>s+i.price*i.quantity,0),[cart]); const count=cart.reduce((s,i)=>s+i.quantity,0);
  const go=(next:View)=>{setView(next);setMenu(false);window.scrollTo({top:0,behavior:"smooth"})}; const toast=(x:string)=>{setNotice(x);window.setTimeout(()=>setNotice(""),2400)};
  function change(f:Flower,d:number){setCart(a=>{const has=a.find(x=>x.id===f.id);if(!has&&d>0)return[...a,{...f,quantity:1}];return a.flatMap(x=>x.id!==f.id?[x]:x.quantity+d>0?[{...x,quantity:x.quantity+d}]:[])})}
  return <main><header className="site-header"><button className="wordmark" onClick={()=>go("home")}>Florè</button><button className="menu-toggle" onClick={()=>setMenu(!menu)} aria-label="Menyunu aç"><Menu/></button><nav className={menu?"main-nav open":"main-nav"}><button onClick={()=>go("shop")}>Güllər</button><button onClick={()=>go("about")}>Haqqımızda</button><button onClick={()=>go("contact")}>Əlaqə</button></nav><div className="header-tools"><button onClick={()=>go("checkout")}>Sifariş</button><button className="bag" onClick={()=>setDrawer(true)} aria-label="Səbəti aç"><ShoppingBag size={20}/><b>{count}</b></button></div></header>
