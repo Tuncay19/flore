@@ -1,6 +1,8 @@
 import os
+from collections import defaultdict, deque
+from time import monotonic
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests as google_requests
@@ -30,6 +32,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
         "http://127.0.0.1:5500",
         "http://localhost:5500",
     ],
@@ -39,6 +43,37 @@ app.add_middleware(
 )
 
 bearer = HTTPBearer()
+
+# Immutable facts used for catalog-aware suggestions. Browser and AI input never set prices.
+CATALOG = [
+    {"id": 1, "name": "Qızılgül", "price": 4, "moods": ["Romantik", "Klassik", "Dramatik"]},
+    {"id": 2, "name": "Lalə", "price": 4, "moods": ["Minimal", "Parlaq", "Pastel"]},
+    {"id": 3, "name": "Pion", "price": 6, "moods": ["Romantik", "Pastel", "Zərif"]},
+    {"id": 4, "name": "Eustoma", "price": 8, "moods": ["Zərif", "Minimal", "Yumşaq"]},
+    {"id": 5, "name": "Qladiolus", "price": 7, "moods": ["Dramatik", "Parlaq", "Klassik"]},
+    {"id": 6, "name": "Zambaq", "price": 8, "moods": ["Klassik", "Zərif", "Yumşaq"]},
+    {"id": 7, "name": "Yasəmən", "price": 4, "moods": ["Yumşaq", "Pastel", "Romantik"]},
+    {"id": 8, "name": "Gerbera", "price": 5, "moods": ["Parlaq", "Minimal", "Yumşaq"]},
+    {"id": 9, "name": "Xrizantema", "price": 9, "moods": ["Klassik", "Dramatik", "Parlaq"]},
+    {"id": 10, "name": "Iris", "price": 5, "moods": ["Zərif", "Dramatik", "Minimal"]},
+    {"id": 11, "name": "Hortensiya", "price": 5, "moods": ["Pastel", "Yumşaq", "Romantik"]},
+    {"id": 12, "name": "Papatya", "price": 5, "moods": ["Minimal", "Yumşaq", "Parlaq"]},
+    {"id": 13, "name": "Alstromeriya", "price": 6, "moods": ["Parlaq", "Zərif", "Klassik"]},
+    {"id": 14, "name": "Orxideya", "price": 10, "moods": ["Dramatik", "Zərif", "Klassik"]},
+    {"id": 15, "name": "Gipsofila", "price": 4, "moods": ["Yumşaq", "Minimal", "Pastel"]},
+]
+assistant_requests: dict[str, deque[float]] = defaultdict(deque)
+
+
+def check_assistant_rate_limit(request: Request) -> None:
+    address = request.client.host if request.client else "unknown"
+    bucket = assistant_requests[address]
+    now = monotonic()
+    while bucket and now - bucket[0] > 60:
+        bucket.popleft()
+    if len(bucket) >= 12:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Çox sorğu göndərildi. Bir az sonra yenidən cəhd edin.")
+    bucket.append(now)
 
 
 def get_current_user(
@@ -157,3 +192,79 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Məhsul tapılmadı")
     return product
+
+
+# ----------------------- SMART GIFTING -----------------------
+
+@app.get("/catalog", response_model=list[schemas.CatalogItem])
+def catalog():
+    return CATALOG
+
+
+@app.post("/assistant/recommend", response_model=schemas.AssistantOut)
+def assistant_recommend(data: schemas.AssistantIn, request: Request):
+    """Deterministic catalog assistant; safe until an external provider is configured."""
+    check_assistant_rate_limit(request)
+    pool = [item for item in CATALOG if not data.mood or data.mood in item["moods"]]
+    pool.sort(key=lambda item: (item["price"], item["id"]))
+    remaining = data.budget
+    result: list[dict] = []
+    for item in pool:
+        quantity = min(5, remaining // item["price"])
+        if quantity:
+            result.append({**item, "quantity": quantity})
+            remaining -= item["price"] * quantity
+        if len(result) >= 3:
+            break
+    return schemas.AssistantOut(
+        provider_status="rule_based",
+        disclaimer="Xarici AI provider hələ konfiqurasiya edilməyib; seçim yalnız təsdiqlənmiş kataloq qiymətləri ilə hesablanır.",
+        total=data.budget - remaining,
+        items=result,
+    )
+
+
+@app.get("/recipients", response_model=list[schemas.RecipientOut])
+def list_recipients(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.scalars(select(models.Recipient).where(models.Recipient.user_id == current_user.id).order_by(models.Recipient.created_at.desc())).all()
+
+
+@app.post("/recipients", response_model=schemas.RecipientOut, status_code=201)
+def create_recipient(data: schemas.RecipientIn, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    recipient = models.Recipient(user_id=current_user.id, **data.model_dump())
+    db.add(recipient)
+    db.commit()
+    db.refresh(recipient)
+    return recipient
+
+
+@app.delete("/recipients/{recipient_id}", status_code=204)
+def delete_recipient(recipient_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    recipient = db.get(models.Recipient, recipient_id)
+    if not recipient or recipient.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alıcı tapılmadı")
+    db.delete(recipient)
+    db.commit()
+
+
+@app.get("/occasions", response_model=list[schemas.OccasionOut])
+def list_occasions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.scalars(select(models.Occasion).where(models.Occasion.user_id == current_user.id).order_by(models.Occasion.event_date)).all()
+
+
+@app.post("/occasions", response_model=schemas.OccasionOut, status_code=201)
+def create_occasion(data: schemas.OccasionIn, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    occasion = models.Occasion(user_id=current_user.id, **data.model_dump())
+    db.add(occasion)
+    db.commit()
+    db.refresh(occasion)
+    return occasion
+
+
+@app.delete("/occasions/{occasion_id}", status_code=204)
+def delete_occasion(occasion_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    occasion = db.get(models.Occasion, occasion_id)
+    if not occasion or occasion.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tarix tapılmadı")
+    db.delete(occasion)
+    db.commit()

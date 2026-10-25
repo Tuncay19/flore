@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, Float, Text
+from sqlalchemy import String, Boolean, DateTime, Float, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
 
@@ -32,3 +32,28 @@ class Product(Base):
     category: Mapped[str] = mapped_column(String(50), index=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     stock: Mapped[int] = mapped_column(default=0)
+
+
+class Recipient(Base):
+    __tablename__ = "recipients"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    favorite_flowers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Occasion(Base):
+    __tablename__ = "occasions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(100))
+    recipient_name: Mapped[str] = mapped_column(String(100))
+    event_date: Mapped[datetime] = mapped_column(DateTime, index=True)
+    reminder: Mapped[str] = mapped_column(String(40), default="3 gün əvvəl")
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
