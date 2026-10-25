@@ -14,6 +14,11 @@ class LoginIn(BaseModel):
     password: str
 
 
+class GoogleLoginIn(BaseModel):
+    # Frontend-də Google düyməsinə basandan sonra gələn "credential" (ID token)
+    credential: str
+
+
 class UserOut(BaseModel):
     id: int
     full_name: str
@@ -29,3 +34,15 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class ProductOut(BaseModel):
+    id: int
+    name: str
+    description: str
+    price: float
+    category: str
+    image_url: str | None
+    stock: int
+
+    model_config = {"from_attributes": True}

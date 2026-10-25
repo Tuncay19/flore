@@ -1,0 +1,30 @@
+.site-search{width:160px;padding:9px 14px;border:1px solid var(--wine);background:var(--ivory);color:var(--ink);border-radius:999px;font-size:14px}
+.site-search:focus{outline:2px solid var(--wine);outline-offset:1px}
+.signin{border:1px solid var(--wine);background:var(--wine);color:#fff;padding:9px 18px;border-radius:999px;font-weight:600;font-size:14px}
+.user-chip{display:flex;align-items:center;gap:8px;color:var(--wine);font-weight:600;font-size:14px}
+.user-chip button{border:0;background:none;color:var(--wine);text-decoration:underline;font-size:13px;padding:0}
+.shop-search{display:none;width:100%;margin-top:16px;padding:12px 14px;border:1px solid var(--ink);background:#fff;color:var(--ink)}
+.no-results{grid-column:1/-1;font:24px "Cormorant Garamond",serif;color:var(--wine);padding:30px 0}
+
+.auth-modal{position:fixed;z-index:9;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 32px));max-height:calc(100vh - 32px);overflow:auto;background:var(--ivory);border:1px solid var(--ink);padding:28px}
+.auth-modal .close{position:absolute;top:12px;right:12px}
+.auth-eyebrow{color:var(--wine);font-size:11px;letter-spacing:1px;font-weight:600;margin:0 0 10px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--ink);margin-bottom:6px}
+.auth-tabs button{flex:1;border:0;background:none;padding:10px;font:26px "Cormorant Garamond",serif;color:var(--ink);opacity:.55}
+.auth-tabs button.active{opacity:1;color:var(--wine);border-bottom:2px solid var(--wine);margin-bottom:-1px}
+.auth-modal form{display:grid;gap:4px}
+.auth-modal label{display:grid;gap:6px;margin:10px 0 2px;font-size:13px}
+.auth-modal input{padding:12px;border:1px solid var(--ink);background:#fff;color:var(--ink)}
+.auth-modal .primary{margin-top:14px;width:100%;justify-content:center}
+.auth-modal .primary:disabled{opacity:.6;cursor:default}
+.auth-msg{margin:14px 0 0;padding:10px 12px;background:var(--blush);color:var(--wine);font-size:13px;border:1px solid var(--wine)}
+.auth-or{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:var(--ink);opacity:.6;font-size:12px}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--ink);opacity:.4}
+.google-slot{display:flex;justify-content:center;min-height:44px}
+
+@media(max-width:760px){
+  .site-search{display:none}
+  .shop-search{display:block}
+  .signin{padding:8px 13px}
+  .header-tools{gap:10px}
+}
