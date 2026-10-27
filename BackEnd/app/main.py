@@ -96,7 +96,9 @@ def google_login(data: schemas.GoogleLoginIn, db: Session = Depends(get_db)):
         info = google_id_token.verify_oauth2_token(
             data.credential, google_requests.Request(), client_id
         )
-    except ValueError:
+    except ValueError as exc:
+        # Səbəb backend terminalında görünsün (məs. "wrong audience" = Client ID-lər fərqlidir)
+        print("Google token xətası:", exc)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Google tokeni yanlışdır")
 
     if not info.get("email_verified"):
