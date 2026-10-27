@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -51,7 +53,7 @@ class ProductOut(BaseModel):
 class CatalogItem(BaseModel):
     id: int
     name: str
-    price: int
+    price_minor: int
     moods: list[str]
 
 
@@ -68,8 +70,79 @@ class AssistantItem(CatalogItem):
 class AssistantOut(BaseModel):
     provider_status: str
     disclaimer: str
-    total: int
+    total_minor: int
     items: list[AssistantItem]
+
+
+class QuoteItemIn(BaseModel):
+    product_id: int = Field(ge=1)
+    quantity: int = Field(ge=1, le=99)
+
+
+class QuoteItemOut(QuoteItemIn):
+    name: str
+    unit_price_minor: int
+    line_total_minor: int
+
+
+class QuoteIn(BaseModel):
+    items: list[QuoteItemIn] = Field(min_length=1, max_length=15)
+    delivery_zone: Literal["central", "outer"]
+
+
+class QuoteOut(BaseModel):
+    items: list[QuoteItemOut]
+    subtotal_minor: int
+    delivery_minor: int
+    discount_minor: int
+    total_minor: int
+    loyalty_level: str | None
+    loyalty_label: str | None
+    discount_percent: int
+
+
+class OrderRequestIn(QuoteIn):
+    contact_name: str = Field(min_length=2, max_length=100)
+    phone: str = Field(min_length=5, max_length=30)
+    recipient_name: str = Field(min_length=2, max_length=100)
+    address: str = Field(min_length=5, max_length=300)
+    note: str | None = Field(default=None, max_length=180)
+    card_style: Literal["rose", "ivory", "night"] | None = None
+
+
+class OrderOut(BaseModel):
+    id: int
+    status: str
+    subtotal_minor: int
+    delivery_minor: int
+    discount_minor: int
+    total_minor: int
+    loyalty_level: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OrderStatusIn(BaseModel):
+    status: Literal["confirmed", "completed", "cancelled", "refunded"]
+
+
+class LoyaltyEventOut(BaseModel):
+    previous_level: str | None
+    new_level: str
+    reason: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LoyaltyOut(BaseModel):
+    level: str
+    discount_percent: int
+    completed_spend_minor: int
+    next_level: str | None
+    amount_to_next_minor: int | None
+    history: list[LoyaltyEventOut]
 
 
 class RecipientIn(BaseModel):
