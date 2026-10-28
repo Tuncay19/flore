@@ -4,14 +4,8 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 
-# Production-da sabit standart açar ilə işə düşmək qadağandır. Lokal inkişaf
-# üçün uzun, aydın şəkildə qeyri-prodakşn açar saxlanır ki, JWT kitabxanası da
-# təhlükəli qısa açar xəbərdarlığı verməsin.
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    if os.getenv("APP_ENV", "development").lower() == "production":
-        raise RuntimeError("Production üçün SECRET_KEY mühit dəyişəni mütləqdir")
-    SECRET_KEY = "development-only-key-change-before-production-2026"
+# Real layihədə SECRET_KEY mütləq mühit dəyişəni ilə verilməlidir.
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 gün
 

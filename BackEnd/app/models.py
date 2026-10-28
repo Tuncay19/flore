@@ -1,7 +1,13 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, Float, ForeignKey, Text, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .database import Base
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class User(Base):
@@ -17,9 +23,7 @@ class User(Base):
         String(64), unique=True, index=True, nullable=True
     )
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
 class Product(Base):
@@ -34,52 +38,44 @@ class Product(Base):
     stock: Mapped[int] = mapped_column(default=0)
 
 
-class Recipient(Base):
-    __tablename__ = "recipients"
+# ---------------- Sevimlilər ----------------
+class Favorite(Base):
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_favorite_user_product"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    name: Mapped[str] = mapped_column(String(100))
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    favorite_flowers: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
-class Occasion(Base):
-    __tablename__ = "occasions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    title: Mapped[str] = mapped_column(String(100))
-    recipient_name: Mapped[str] = mapped_column(String(100))
-    event_date: Mapped[datetime] = mapped_column(DateTime, index=True)
-    reminder: Mapped[str] = mapped_column(String(40), default="3 gün əvvəl")
-    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-
+# ---------------- Sifarişlər ----------------
 class Order(Base):
-    """A request, not a payment record. Payment is never marked successful here."""
-
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    contact_name: Mapped[str] = mapped_column(String(100))
+    # Qonaq sifarişində user_id boş qalır
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    customer_name: Mapped[str] = mapped_column(String(100))
     phone: Mapped[str] = mapped_column(String(30))
-    recipient_name: Mapped[str] = mapped_column(String(100))
-    address: Mapped[str] = mapped_column(String(300))
-    delivery_zone: Mapped[str] = mapped_column(String(20))
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    card_style: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    subtotal_minor: Mapped[int] = mapped_column(Integer)
-    delivery_minor: Mapped[int] = mapped_column(Integer)
-    discount_minor: Mapped[int] = mapped_column(Integer, default=0)
-    total_minor: Mapped[int] = mapped_column(Integer)
-    loyalty_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="request", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    address: Mapped[str] = mapped_column(String(255))
+    receiver_name: Mapped[str] = mapped_column(String(100))
+    receiver_phone: Mapped[str] = mapped_column(String(30))
+    payment_method: Mapped[str] = mapped_column(String(10), default="cash")
+    # Aşağıdakı 5 sütun əvvəlki versiyadan qalıb və istifadə olunmur; mövcud bazanı silməmək üçün saxlanılır
+    wrapping: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ribbon: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    card_message: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    subtotal: Mapped[float] = mapped_column(Float)
+    discount: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float)
+    points_earned: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(String(20), default="new")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    items: Mapped[list["OrderItem"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
 
 
 class OrderItem(Base):
@@ -87,18 +83,9 @@ class OrderItem(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
-    product_name: Mapped[str] = mapped_column(String(150))
-    unit_price_minor: Mapped[int] = mapped_column(Integer)
-    quantity: Mapped[int] = mapped_column(Integer)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(150))
+    unit_price: Mapped[float] = mapped_column(Float)
+    quantity: Mapped[int] = mapped_column()
 
-
-class LoyaltyEvent(Base):
-    __tablename__ = "loyalty_events"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    previous_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    new_level: Mapped[str] = mapped_column(String(20))
-    reason: Mapped[str] = mapped_column(String(100))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    order: Mapped["Order"] = relationship(back_populates="items")
