@@ -1,0 +1,54 @@
+/* =========================================================
+   Yeni xüsusiyyətlər: dil seçimi, sevimlilər, filtrlər
+   ========================================================= */
+.primary:disabled{opacity:.5;cursor:default}
+.empty-page p{margin:12px 0 22px}
+
+/* ---- Başlıq: dil, istifadəçi, naviqasiya sayğacı ---- */
+.lang-switch{display:flex;border:1px solid var(--wine);border-radius:999px;overflow:hidden}
+.lang-switch button{border:0;background:none;color:var(--wine);padding:7px 10px;font-size:12px;font-weight:600;letter-spacing:.04em}
+.lang-switch button.on{background:var(--wine);color:#fff}
+.user-chip{display:flex;align-items:center;gap:8px;color:var(--wine);font-weight:600;font-size:14px}
+.user-chip button{border:0;background:none;color:var(--wine);text-decoration:underline;font-size:13px;padding:0}
+.nav-count{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:7px;border-radius:50%;background:var(--wine);color:#fff;font:600 10px "DM Sans",sans-serif;vertical-align:middle}
+
+/* ---- Gül kartı: ürək düyməsi ---- */
+.flower-card>div.card-media{padding:0!important;display:block!important;position:relative}
+.heart{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;border:0;background:#fffaf7e6;color:var(--wine);display:grid;place-items:center;box-shadow:0 4px 14px rgba(71,12,40,.18);transition:transform .2s,background .2s,color .2s}
+.heart:hover{transform:scale(1.1)}
+.heart.on{background:var(--wine);color:#fff}
+
+/* ---- Filtrlər ---- */
+.filters{border:1px solid var(--ink);background:#fff;padding:16px;margin-bottom:18px;display:grid;gap:14px}
+.search-field{display:flex;align-items:center;gap:10px;border:1px solid var(--ink);padding:0 12px;background:var(--ivory);color:var(--wine)}
+.search-field input{flex:1;border:0;background:none;padding:11px 0;color:var(--ink);outline:none}
+.search-field:focus-within{outline:2px solid var(--wine);outline-offset:1px}
+.filter-label{display:block;font-size:11px;letter-spacing:.08em;font-weight:600;color:var(--wine);text-transform:uppercase;margin-bottom:8px}
+.color-chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #29151e55;background:var(--ivory);color:var(--ink);padding:6px 12px;border-radius:999px;font-size:13px;transition:background .2s,color .2s,border-color .2s}
+.chip i{width:12px;height:12px;border-radius:50%;border:1px solid #29151e55}
+.chip:hover{border-color:var(--wine)}
+.chip.on{background:var(--wine);border-color:var(--wine);color:#fff}
+.filter-row{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:end}
+.filter-row label{display:grid;gap:6px;font-size:12px;color:var(--ink)}
+.filter-row input[type=range]{accent-color:var(--wine);width:190px}
+.filter-row select{padding:9px 10px;border:1px solid var(--ink);background:var(--ivory);color:var(--ink);font:inherit}
+.filter-row .fav-toggle{display:flex;align-items:center;gap:8px}
+.fav-toggle input{accent-color:var(--wine);width:16px;height:16px}
+.link-btn{border:0;background:none;color:var(--wine);text-decoration:underline;padding:0;font-size:13px;justify-self:start}
+.result-count{margin:0 0 14px;font-size:13px;color:#73515f}
+.no-results{text-align:center;padding:50px 10px;font:26px "Cormorant Garamond",serif;color:var(--wine)}
+.no-results small{display:block;font:14px "DM Sans",sans-serif;color:#73515f;margin-top:8px}
+
+/* ---- Sifariş ---- */
+.form-error{margin:12px 0 0;padding:10px 12px;background:var(--blush);color:var(--wine);border:1px solid var(--wine);font-size:13px}
+.summary small{display:block;margin-top:10px;color:#73515f}
+
+/* ---- Mobil ---- */
+@media(max-width:760px){
+  .hide-sm{display:none}
+  .lang-switch button{padding:6px 7px;font-size:11px}
+  .signin{padding:8px 10px}
+  .header-tools{gap:8px}
+  .filter-row input[type=range]{width:100%}
+}

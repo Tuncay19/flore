@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { api, type TokenOut } from "./api";
+import { errorMessage, useLang } from "./i18n";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
@@ -34,14 +35,16 @@ function loadGoogleScript(): Promise<void> {
 
 type Props = { onSuccess: (t: TokenOut) => void; onError: (msg: string) => void };
 
-export default function GoogleLoginButton({ onSuccess, onError }: Props) {
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const callbacks = useRef({ onSuccess, onError });
-  callbacks.current = { onSuccess, onError };
+export default function GoogleButton({ onSuccess, onError }: Props) {
+  const { t } = useLang();
+  const slot = useRef<HTMLDivElement>(null);
+  // Ən son callback-ləri və tərcüməni saxlayırıq ki, dil dəyişəndə də düzgün işləsin
+  const latest = useRef({ onSuccess, onError, t });
+  latest.current = { onSuccess, onError, t };
 
   useEffect(() => {
     if (!CLIENT_ID) {
-      callbacks.current.onError("VITE_GOOGLE_CLIENT_ID təyin olunmayıb (frontend/.env faylına bax)");
+      latest.current.onError(latest.current.t("google.noClientId"));
       return;
     }
 
@@ -49,37 +52,37 @@ export default function GoogleLoginButton({ onSuccess, onError }: Props) {
 
     loadGoogleScript()
       .then(() => {
-        if (cancelled || !buttonRef.current) return;
+        if (cancelled || !slot.current) return;
 
         window.google.accounts.id.initialize({
           client_id: CLIENT_ID,
           // İstifadəçi Google hesabını seçəndə bu funksiya işləyir
           callback: async (response: { credential: string }) => {
             try {
-              const t = await api<TokenOut>("/auth/google", {
+              const data = await api<TokenOut>("/auth/google", {
                 method: "POST",
                 body: { credential: response.credential },
               });
-              callbacks.current.onSuccess(t);
+              latest.current.onSuccess(data);
             } catch (err) {
-              callbacks.current.onError(err instanceof Error ? err.message : "Google ilə giriş alınmadı");
+              latest.current.onError(errorMessage(err, latest.current.t));
             }
           },
         });
 
-        window.google.accounts.id.renderButton(buttonRef.current, {
+        window.google.accounts.id.renderButton(slot.current, {
           theme: "outline",
           size: "large",
           text: "continue_with",
           width: 320,
         });
       })
-      .catch(() => callbacks.current.onError("Google skripti yüklənmədi (internet bağlantısını yoxla)"));
+      .catch(() => latest.current.onError(latest.current.t("google.loadFailed")));
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return <div className="google-slot" ref={buttonRef} />;
+  return <div className="google-slot" ref={slot} />;
 }

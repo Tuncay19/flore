@@ -1,36 +1,99 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
+  type FormEvent, type ReactNode,
+} from "react";
 import { X } from "lucide-react";
-import { api, type TokenOut, type User } from "./api";
-import GoogleLoginButton from "./GoogleLoginButton";
+import { api, ApiError, type TokenOut, type User } from "./api";
+import { errorMessage, useLang } from "./i18n";
+import GoogleButton from "./GoogleButton";
 
-// Giriş vəziyyətini saxlayır: səhifə yenilənəndə də token ilə istifadəçini bərpa edir
-export function useAuth() {
+type AuthState = {
+  user: User | null;
+  token: string | null;
+  setSession: (t: TokenOut) => void;
+  logout: () => void;
+  openAuth: (reason?: string) => void;
+};
+
+const AuthCtx = createContext<AuthState | null>(null);
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthCtx);
+  if (!ctx) throw new Error("AuthProvider tapılmadı (main.tsx-ə bax)");
+  return ctx;
+}
+
+function readToken(): string | null {
+  try {
+    return localStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [token, setToken] = useState<string | null>(readToken);
   const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    api<User>("/auth/me", { token })
-      .then(setUser)
-      .catch(() => localStorage.removeItem("token"));
-  }, []);
-
-  const setSession = useCallback((t: TokenOut) => {
-    localStorage.setItem("token", t.access_token);
-    setUser(t.user);
-  }, []);
+  const [modal, setModal] = useState({ open: false, reason: "" });
 
   const logout = useCallback(() => {
-    localStorage.removeItem("token");
+    try {
+      localStorage.removeItem("token");
+    } catch {
+      /* ignore */
+    }
+    setToken(null);
     setUser(null);
   }, []);
 
-  return { user, setSession, logout };
+  // Token dəyişəndə istifadəçini yükləyir (səhifə yenilənəndə giriş qalır)
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+    let off = false;
+    api<User>("/auth/me", { token })
+      .then((u) => { if (!off) setUser(u); })
+      .catch((e) => { if (e instanceof ApiError && e.status === 401) logout(); });
+    return () => { off = true; };
+  }, [token, logout]);
+
+  const setSession = useCallback((t: TokenOut) => {
+    try {
+      localStorage.setItem("token", t.access_token);
+    } catch {
+      /* ignore */
+    }
+    setToken(t.access_token);
+    setUser(t.user);
+  }, []);
+
+  const openAuth = useCallback((reason = "") => setModal({ open: true, reason }), []);
+  const closeAuth = useCallback(() => setModal({ open: false, reason: "" }), []);
+
+  const value = useMemo<AuthState>(
+    () => ({ user, token, setSession, logout, openAuth }),
+    [user, token, setSession, logout, openAuth],
+  );
+
+  return (
+    <AuthCtx.Provider value={value}>
+      {children}
+      <AuthModal open={modal.open} reason={modal.reason} close={closeAuth} onSession={setSession} />
+    </AuthCtx.Provider>
+  );
 }
 
-type Props = { open: boolean; close: () => void; onSession: (t: TokenOut) => void };
+type ModalProps = {
+  open: boolean;
+  reason: string;
+  close: () => void;
+  onSession: (t: TokenOut) => void;
+};
 
-export function AuthModal({ open, close, onSession }: Props) {
+function AuthModal({ open, reason, close, onSession }: ModalProps) {
+  const { t } = useLang();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,15 +108,15 @@ export function AuthModal({ open, close, onSession }: Props) {
     setBusy(true);
     setMsg("");
     try {
-      const t = await api<TokenOut>(tab === "login" ? "/auth/login" : "/auth/register", {
+      const res = await api<TokenOut>(tab === "login" ? "/auth/login" : "/auth/register", {
         method: "POST",
         body: data,
       });
       form.reset();
-      onSession(t);
+      onSession(res);
       close();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Xəta baş verdi");
+      setMsg(errorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -67,26 +130,36 @@ export function AuthModal({ open, close, onSession }: Props) {
   return (
     <>
       <div className="overlay open" onClick={close} />
-      <div className="auth-modal" role="dialog" aria-modal="true" aria-label="Giriş və qeydiyyat">
-        <button className="close" onClick={close} aria-label="Bağla"><X /></button>
-        <p className="auth-eyebrow">HESAB</p>
+      <div className="auth-modal" role="dialog" aria-modal="true" aria-label={t("auth.dialog")}>
+        <button className="close" onClick={close} aria-label={t("auth.close")}><X /></button>
+        <p className="auth-eyebrow">{t("auth.eyebrow")}</p>
+        {reason && <p className="auth-reason">{reason}</p>}
         <div className="auth-tabs">
-          <button className={tab === "login" ? "active" : ""} onClick={() => switchTab("login")}>Giriş</button>
-          <button className={tab === "register" ? "active" : ""} onClick={() => switchTab("register")}>Qeydiyyat</button>
+          <button className={tab === "login" ? "active" : ""} onClick={() => switchTab("login")}>{t("auth.tabLogin")}</button>
+          <button className={tab === "register" ? "active" : ""} onClick={() => switchTab("register")}>{t("auth.tabRegister")}</button>
         </div>
 
         <form key={tab} onSubmit={submit}>
-          {tab === "register" && <label>Ad, soyad<input name="full_name" required minLength={2} /></label>}
-          <label>E-poçt<input name="email" type="email" required /></label>
-          {tab === "register" && <label>Telefon (ixtiyari)<input name="phone" type="tel" /></label>}
-          <label>Parol<input name="password" type="password" required minLength={tab === "register" ? 8 : 1} /></label>
-          <button className="primary" disabled={busy}>{tab === "login" ? "Daxil ol" : "Qeydiyyatdan keç"}</button>
+          {tab === "register" && (
+            <label>{t("auth.fullName")}<input name="full_name" required minLength={2} /></label>
+          )}
+          <label>{t("auth.email")}<input name="email" type="email" required /></label>
+          {tab === "register" && (
+            <label>{t("auth.phoneOptional")}<input name="phone" type="tel" /></label>
+          )}
+          <label>
+            {tab === "register" ? t("auth.passwordRegister") : t("auth.password")}
+            <input name="password" type="password" required minLength={tab === "register" ? 8 : 1} />
+          </label>
+          <button className="primary" disabled={busy}>
+            {tab === "login" ? t("auth.submitLogin") : t("auth.submitRegister")}
+          </button>
         </form>
 
         {msg && <p className="auth-msg">{msg}</p>}
 
-        <div className="auth-or"><span>və ya</span></div>
-        <GoogleLoginButton onSuccess={(t) => { onSession(t); close(); }} onError={setMsg} />
+        <div className="auth-or"><span>{t("auth.or")}</span></div>
+        <GoogleButton onSuccess={(res) => { onSession(res); close(); }} onError={setMsg} />
       </div>
     </>
   );
